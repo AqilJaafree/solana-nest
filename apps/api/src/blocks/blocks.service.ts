@@ -76,4 +76,25 @@ export class BlocksService {
       timestamp: new Date().toISOString(),
     };
   }
+
+  async findActiveBlock(): Promise<{ 
+    slot: number; 
+    transactionCount: number; 
+    blockTime: number;
+    success: boolean;
+    timestamp: string;
+  }> {
+    this.logger.log('Searching for active block...');
+    
+    const activeBlock = await this.solanaService.findActiveBlock();
+    const block = await this.solanaService.getBlock(activeBlock.slot);
+    
+    return {
+      slot: activeBlock.slot,
+      transactionCount: activeBlock.transactionCount,
+      blockTime: block.blockTime,
+      success: true,
+      timestamp: new Date().toISOString(),
+    };
+  }
 }

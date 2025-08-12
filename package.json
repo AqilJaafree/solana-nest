@@ -5,12 +5,22 @@
   "description": "Solana block transaction counter with NestJS API and NextJS frontend",
   "scripts": {
     "dev:api": "pnpm --filter api run start:dev",
+    "dev:web": "pnpm --filter web run dev",
+    "dev:all": "concurrently \"pnpm run dev:api\" \"pnpm run dev:web\" --names \"API,WEB\" --prefix-colors \"red,blue\"",
     "build:api": "pnpm --filter api run build",
+    "build:web": "pnpm --filter web run build",
+    "build:shared": "pnpm --filter @solana-block-counter/shared run build",
+    "build": "pnpm run build:shared && pnpm run build:api && pnpm run build:web",
     "test:api": "pnpm --filter api run test",
-    "clean": "pnpm -r exec rm -rf dist node_modules .next"
+    "test:e2e": "pnpm --filter api run test:e2e",
+    "test": "pnpm run test:api",
+    "lint": "pnpm -r run lint",
+    "clean": "pnpm -r exec rm -rf dist node_modules .next",
+    "install:all": "pnpm install"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "concurrently": "^8.2.2",
     "prettier": "^3.0.0",
     "typescript": "^5.0.0"
   },

@@ -40,19 +40,24 @@ export class SolanaService {
           slot,
           {
             encoding: 'json',
-            transactionDetails: 'signatures',
+            transactionDetails: 'full', // Changed from 'signatures' to 'full'
             rewards: false,
             maxSupportedTransactionVersion: 0,
+            commitment: 'finalized',
           },
         ],
       };
 
+      this.logger.debug(`Sending payload: ${JSON.stringify(payload)}`);
+
       const response = await firstValueFrom(
         this.httpService.post(this.rpcUrl, payload, {
           headers: { 'Content-Type': 'application/json' },
-          timeout: 15000, // Increased timeout for Alchemy
+          timeout: 15000,
         }),
       );
+
+      this.logger.debug(`Raw response for block ${slot}: ${JSON.stringify(response.data)}`);
 
       if (response.data.error) {
         this.logger.error(`Solana RPC error: ${JSON.stringify(response.data.error)}`);
@@ -67,14 +72,23 @@ export class SolanaService {
         throw new HttpException(`Block ${slot} not found`, HttpStatus.NOT_FOUND);
       }
 
-      this.logger.log(`Successfully fetched block ${slot} with ${blockData.transactions?.length || 0} transactions`);
+      // Log block details for debugging
+      this.logger.log(`Block ${slot} details:`);
+      this.logger.log(`- Block height: ${blockData.blockHeight}`);
+      this.logger.log(`- Block time: ${blockData.blockTime}`);
+      this.logger.log(`- Transactions array length: ${blockData.transactions?.length || 0}`);
+      this.logger.log(`- Raw transactions: ${JSON.stringify(blockData.transactions?.slice(0, 2) || [])}`);
+
+      const transactions = blockData.transactions || [];
+
+      this.logger.log(`Successfully fetched block ${slot} with ${transactions.length} transactions`);
 
       return {
         blockHeight: slot,
         blockTime: blockData.blockTime,
         blockhash: blockData.blockhash,
         parentSlot: blockData.parentSlot,
-        transactions: blockData.transactions || [],
+        transactions: transactions,
       };
     } catch (error) {
       this.logger.error(`Failed to fetch block ${slot}: ${error.message}`);
@@ -83,7 +97,6 @@ export class SolanaService {
         throw error;
       }
       
-      // More specific error messages
       if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
         throw new HttpException(
           'Request timed out - Solana network may be slow',
@@ -111,7 +124,7 @@ export class SolanaService {
       const response = await firstValueFrom(
         this.httpService.post(this.rpcUrl, payload, {
           headers: { 'Content-Type': 'application/json' },
-          timeout: 10000, // Increased timeout
+          timeout: 10000,
         }),
       );
 
@@ -140,5 +153,29 @@ export class SolanaService {
         HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
+  }
+
+  // New method to find a block with transactions
+  async findActiveBlock(): Promise<{ slot: number; transactionCount: number }> {
+    this.logger.log('Searching for a block with transactions...');
+    
+    // Get current slot
+    const currentSlot = await this.getCurrentSlot();
+    
+    // Search backwards from current slot
+    for (let slot = currentSlot - 1; slot > currentSlot - 1000; slot--) {
+      try {
+        const block = await this.getBlock(slot);
+        if (block.transactions.length > 0) {
+          this.logger.log(`Found active block ${slot} with ${block.transactions.length} transactions`);
+          return { slot, transactionCount: block.transactions.length };
+        }
+      } catch (error) {
+        // Skip failed blocks and continue searching
+        continue;
+      }
+    }
+    
+    throw new HttpException('No active blocks found in recent range', HttpStatus.NOT_FOUND);
   }
 }

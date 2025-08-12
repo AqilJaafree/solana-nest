@@ -31,6 +31,18 @@ export class BlocksController {
     }
   }
 
+  @Get('find-active')
+  async findActiveBlock() {
+    try {
+      return await this.blocksService.findActiveBlock();
+    } catch (error) {
+      throw new HttpException(
+        'Failed to find active block',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+  }
+
   @Get(':blockNumber/transactions')
   async getTransactionCount(
     @Param() params: BlockNumberDto,
